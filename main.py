@@ -122,7 +122,7 @@ async def run_scraper(scraper):
             )
 
             # 5. Si score >= seuil → générer proposition + notifier
-            if mission_score >= config.score_threshold:
+            if mission_score >= config.score_threshold and proposer:
                 try:
                     proposal = proposer.generate(raw, profile, mission_type)
                     if proposal:
@@ -279,8 +279,12 @@ async def main():
     logger.info("✅ Supabase connecté")
 
     # 3. Init Proposer
-    proposer = Proposer(config.anthropic_api_key)
-    logger.info("✅ Proposer Claude API initialisé")
+    if config.anthropic_api_key:
+        proposer = Proposer(config.anthropic_api_key)
+        logger.info("✅ Proposer Claude API initialisé")
+    else:
+        proposer = None
+        logger.warning("⚠️ Proposer désactivé — ANTHROPIC_API_KEY manquante")
 
     # 4. Scheduler
     sched = setup_scheduler()
