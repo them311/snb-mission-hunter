@@ -44,8 +44,8 @@ class Config:
     def from_env(cls) -> "Config":
         return cls(
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
-            supabase_url=os.getenv("SUPABASE_URL", ""),
-            supabase_service_key=os.getenv("SUPABASE_SERVICE_KEY", ""),
+            supabase_url=os.getenv("SUPABASE_URL", "https://vcchtbjfugzoyzzxbugs.supabase.co"),
+            supabase_service_key=os.getenv("SUPABASE_SERVICE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjY2h0YmpmdWd6b3l6enhidWdzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTA0NTU5NSwiZXhwIjoyMDkwNjIxNTk1fQ.v5eiplTJhUZsUkb1tbFma6vwnuoCZzM6y4a71SSjcWI"),
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
             smtp_host=os.getenv("SMTP_HOST", "smtp.gmail.com"),
