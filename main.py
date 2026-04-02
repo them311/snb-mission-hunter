@@ -35,6 +35,7 @@ from scrapers.linkedin import LinkedInScraper
 from scrapers.workingnomads import WorkingNomadsScraper
 from scrapers.codeur import CodeurScraper
 from scrapers.talentfr import TalentFRScraper
+from scrapers.freework import FreeWorkScraper
 from scrapers.guru import GuruScraper
 from scrapers.landingjobs import LandingJobsScraper
 from scrapers.freelancercom import FreelancerComScraper
@@ -64,6 +65,7 @@ SCRAPERS_TIER1 = [
     WorkingNomadsScraper(),
     CodeurScraper(),
     TalentFRScraper(),
+    FreeWorkScraper(),
 ]
 
 SCRAPERS_TIER2 = [
