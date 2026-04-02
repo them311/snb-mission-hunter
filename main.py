@@ -30,6 +30,8 @@ from scrapers.jobicy import JobicyScraper
 from scrapers.weworkremotely import WeWorkRemotelyScraper
 from scrapers.himalayas import HimalayasScraper
 from scrapers.arbeitnow import ArbeitnowScraper
+from scrapers.linkedin import LinkedInScraper
+from scrapers.workingnomads import WorkingNomadsScraper
 from scrapers.guru import GuruScraper
 from scrapers.landingjobs import LandingJobsScraper
 from scrapers.freelancercom import FreelancerComScraper
@@ -55,6 +57,8 @@ SCRAPERS_TIER1 = [
     WeWorkRemotelyScraper(),
     HimalayasScraper(),
     ArbeitnowScraper(),
+    LinkedInScraper(),
+    WorkingNomadsScraper(),
 ]
 
 SCRAPERS_TIER2 = [
