@@ -28,7 +28,11 @@ from scrapers.remoteok import RemoteOKScraper
 from scrapers.remotive import RemotiveScraper
 from scrapers.jobicy import JobicyScraper
 from scrapers.weworkremotely import WeWorkRemotelyScraper
+from scrapers.himalayas import HimalayasScraper
+from scrapers.arbeitnow import ArbeitnowScraper
 from scrapers.guru import GuruScraper
+from scrapers.landingjobs import LandingJobsScraper
+from scrapers.freelancercom import FreelancerComScraper
 
 # ── Logging ──────────────────────────────────────────────────
 
@@ -49,10 +53,14 @@ SCRAPERS_TIER1 = [
     RemotiveScraper(),
     JobicyScraper(),
     WeWorkRemotelyScraper(),
+    HimalayasScraper(),
+    ArbeitnowScraper(),
 ]
 
 SCRAPERS_TIER2 = [
     GuruScraper(),
+    LandingJobsScraper(),
+    FreelancerComScraper(),
 ]
 
 ALL_SCRAPERS = SCRAPERS_TIER1 + SCRAPERS_TIER2
