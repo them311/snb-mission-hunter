@@ -25,7 +25,7 @@ HIGH_VALUE_KEYWORDS = {
 
 def classify_mission(mission: RawMission) -> str:
     """Classifie le type de mission à partir du titre + description + tags."""
-    text = f"{mission.title} {mission.description} {' '.join(mission.tags)}".lower()
+    text = f"{mission.title} {mission.description} {' '.join(str(t) for t in (mission.tags or []) if t)}".lower()
 
     if any(kw in text for kw in ["ia", "ai", "machine learning", "deep learning",
                                    "chatbot", "gpt", "claude", "llm", "nlp",
@@ -51,7 +51,7 @@ def score_mission(mission: RawMission, profile: dict) -> int:
     """Score 0-100 une mission par rapport au profil."""
     score = 0
     keywords = profile.get("keywords", [])
-    text = f"{mission.title} {mission.description} {' '.join(mission.tags)}".lower()
+    text = f"{mission.title} {mission.description} {' '.join(str(t) for t in (mission.tags or []) if t)}".lower()
 
     # ── Skill match (0-40) ──
     if keywords:
