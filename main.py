@@ -25,7 +25,8 @@ from api import app, set_db, record_scan, record_scan_error, increment_missions,
 
 # Scrapers
 from scrapers.remoteok import RemoteOKScraper
-from scrapers.upwork_rss import UpworkRSSScraper
+from scrapers.remotive import RemotiveScraper
+from scrapers.jobicy import JobicyScraper
 from scrapers.weworkremotely import WeWorkRemotelyScraper
 from scrapers.guru import GuruScraper
 
@@ -45,7 +46,8 @@ logger = logging.getLogger("snb.main")
 
 SCRAPERS_TIER1 = [
     RemoteOKScraper(),
-    UpworkRSSScraper(),
+    RemotiveScraper(),
+    JobicyScraper(),
     WeWorkRemotelyScraper(),
 ]
 

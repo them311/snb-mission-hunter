@@ -22,7 +22,7 @@ class RemoteOKScraper(BaseScraper):
 
     async def fetch(self) -> List[RawMission]:
         missions = []
-        headers = {**DEFAULT_HEADERS, "Accept": "application/json"}
+        headers = {**DEFAULT_HEADERS, "Accept": "application/json", "Accept-Encoding": "gzip, deflate"}
 
         async with aiohttp.ClientSession() as session:
             async with session.get(self.API_URL, headers=headers, timeout=aiohttp.ClientTimeout(total=20)) as resp:
