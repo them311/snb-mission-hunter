@@ -126,7 +126,7 @@ async def run_scraper(scraper):
             # 5. Si score >= seuil → générer proposition + notifier
             if mission_score >= config.score_threshold and proposer:
                 try:
-                    proposal = proposer.generate(raw, profile, mission_type)
+                    proposal = proposer.generate(raw)
                     if proposal:
                         proposal.mission_id = mission_id
                         proposal_data = proposal.to_db_dict()
