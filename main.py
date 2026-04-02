@@ -21,6 +21,7 @@ from db import Database
 from scorer import score_mission, classify_mission
 from proposer import Proposer
 from notifier import notify_telegram, send_email_digest
+from email_sender import send_proposal_email
 from api import app, set_db, record_scan, record_scan_error, increment_missions, increment_proposals
 
 # Scrapers
@@ -154,6 +155,23 @@ async def run_scraper(scraper):
 
                             # Notifier Telegram
                             await notify_telegram(inserted, proposal.text, config)
+
+                            # Envoyer notification email avec la proposition
+                            send_proposal_email(
+                                config,
+                                to_email=config.email_to,
+                                subject=f"🤖 Nouvelle proposition — {raw.title[:50]}",
+                                body_html=f"""<div style="font-family:sans-serif;max-width:600px">
+<h2 style="color:#2563eb;margin-bottom:8px">{raw.title}</h2>
+<p style="color:#666;margin-bottom:16px">{raw.company or 'Entreprise non précisée'} · {raw.source} · Score {mission_score}/100</p>
+<div style="background:#f8f5ff;border:1px solid #e4daff;border-radius:10px;padding:16px;margin-bottom:16px">
+<h4 style="color:#7c3aed;margin-bottom:8px">Proposition générée</h4>
+<pre style="font-family:sans-serif;font-size:14px;line-height:1.6;white-space:pre-wrap">{proposal.text}</pre>
+</div>
+<p><a href="{raw.source_url}" style="color:#2563eb">Voir l'offre originale</a> · <a href="https://snb-consulting-platform.netlify.app" style="color:#2563eb">Dashboard</a></p>
+<p style="color:#aaa;font-size:12px;margin-top:16px">— SNB Mission Hunter · Scan auto toutes les 10 min</p>
+</div>""",
+                            )
 
                             # Ajouter au buffer digest
                             _digest_buffer.append(inserted)
