@@ -113,4 +113,18 @@ def score_mission(mission: RawMission, profile: dict) -> int:
     # ── Client quality (0-10) — placeholder ──
     score += 5  # Valeur neutre, enrichir si data client dispo
 
+    # ── CDI penalty (-20) ──
+    cdi_keywords = ["permanent", "cdi", "indefinite", "unbefristet", "full-time employee", "contrat indéterminée"]
+    if any(kw in text for kw in cdi_keywords):
+        score -= 20
+
+    # ── Freelance / courte durée bonus (+10) ──
+    freelance_keywords = ["freelance", "mission", "cdd", "intérim", "contract", "short-term", "part-time", "courte durée"]
+    if any(kw in text for kw in freelance_keywords):
+        score += 10
+
+    # ── France bonus (+5) ──
+    if mission.source in ("talentfr", "codeur", "freework"):
+        score += 5
+
     return min(100, max(0, score))

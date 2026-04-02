@@ -62,7 +62,7 @@ PROFILE = {
 }
 
 
-def get_proposal_prompt(mission_title, mission_desc, mission_source, language="auto"):
+def get_proposal_prompt(mission_title, mission_desc, mission_source, language="auto", mission_type="other"):
     """Génère le prompt Claude pour créer une proposition personnalisée."""
     lang = language
     if lang == "auto":
@@ -72,9 +72,21 @@ def get_proposal_prompt(mission_title, mission_desc, mission_source, language="a
     p = PROFILE
     skills = ", ".join(p["skills_primary"][:5])
 
+    # Templates par type de mission
+    type_hooks = {
+        "ia": "Mon expertise IA : agents autonomes multi-agents en production (Claude API, OpenAI), chatbots, RAG, automatisation intelligente.",
+        "web": "Mon expertise web : sites e-commerce Shopify custom, apps React/Next.js, APIs Node.js, responsive design premium.",
+        "data": "Mon expertise data : pipelines ETL, scraping intelligent, dashboards analytics, automatisation de reporting.",
+        "consulting": "Mon expertise conseil : Master Stratégie & Consulting (TBS), transformation digitale, audit opérationnel, conduite du changement.",
+        "design": "Mon expertise design : branding premium, identité visuelle, UX/UI Figma, supports marketing print et digital.",
+        "other": "Profil polyvalent : développement web, IA, consulting stratégique, e-commerce.",
+    }
+    type_hook = type_hooks.get(mission_type, type_hooks["other"])
+
     if lang == "fr":
         return f"""Tu es {p['name']}, {p['title']} freelance basé à {p['location']}.
 {p['bio_full']}
+{type_hook}
 
 Compétences clés : {skills}
 TJM : {p['tjm']}€/jour | Langues : FR/EN/ES

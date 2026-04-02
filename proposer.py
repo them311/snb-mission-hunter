@@ -9,6 +9,7 @@ from typing import Optional
 import anthropic
 from models import RawMission, Proposal
 from profile import PROFILE, get_proposal_prompt
+from scorer import classify_mission
 
 logger = logging.getLogger("snb.proposer")
 
@@ -19,10 +20,12 @@ class Proposer:
 
     def generate(self, mission: RawMission, **kwargs) -> Optional[Proposal]:
         """Génère une proposition personnalisée pour la mission."""
+        mission_type = classify_mission(mission)
         prompt = get_proposal_prompt(
             mission_title=mission.title,
             mission_desc=mission.description or "",
             mission_source=mission.source,
+            mission_type=mission_type,
         )
         # Detect language
         text_sample = f"{mission.title} {(mission.description or '')[:200]}"
