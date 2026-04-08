@@ -22,6 +22,11 @@ app.add_middleware(
 
 _started_at = time.time()
 _db = None
+_proposer_active = False
+
+def set_proposer_active(active: bool):
+    global _proposer_active
+    _proposer_active = active
 
 def set_db(db):
     global _db
@@ -48,6 +53,10 @@ def increment_missions(): pass
 def increment_proposals(): pass
 
 
+@app.get("/")
+async def root():
+    return {"service": "SNB Mission Hunter", "status": "running"}
+
 @app.get("/health")
 async def health():
     uptime = int(time.time() - _started_at)
@@ -61,6 +70,8 @@ async def health():
         "scans_total": 0,
         "missions_today": 0,
         "proposals_today": 0,
+        "proposer_active": _proposer_active,
+        "score_threshold": None,
         "sources": {},
     }
 
