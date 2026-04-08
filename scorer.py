@@ -1,339 +1,232 @@
 """
-SNB Mission Hunter — Scorer v2
+SNB Mission Hunter — Scorer v2 (compatible main.py)
 Calibré pour : Baptiste Thévenot, Consultant Web & IA, TJM 450€/j, Toulouse/Remote
-Seuil proposal : 55 (abaissé depuis 70 — scorer v1 sous-estimait les missions FR)
 
-Score max théorique : 100
+Signatures conservées :
+  score_mission(raw: RawMission, profile: dict) -> int
+  classify_mission(raw: RawMission) -> str
+
+Score max : 100
 Composantes :
-  - Stack match        : 0-35 pts  (pondération principale)
-  - Budget/TJM         : 0-25 pts
-  - Type de mission    : 0-20 pts  (consulting > dev pur)
-  - Remote & localité  : 0-10 pts
-  - Urgence/fraîcheur  : 0-10 pts
+  Stack match     0-35 pts  (pondération principale)
+  Budget/TJM      0-25 pts
+  Type mission    0-20 pts  (consulting > dev pur)
+  Remote          0-10 pts
+  Fraîcheur       0-10 pts
+  Pénalités       illimitées (CDI, Java, stage…)
+
+Seuil génération proposition : 55 (config.py SCORE_THRESHOLD)
 """
 
-import re
+from __future__ import annotations
+
+import logging
 from datetime import datetime, timezone
-from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from models import RawMission
 
-@dataclass
-class Mission:
-    title: str
-    description: str
-    source: str
-    url: str
-    budget_min: Optional[float] = None
-    budget_max: Optional[float] = None
-    is_remote: bool = True
-    location: Optional[str] = None
-    posted_at: Optional[datetime] = None
-    tags: list = None
+logger = logging.getLogger("snb.scorer")
 
-    def __post_init__(self):
-        if self.tags is None:
-            self.tags = []
+# ─────────────────────────────────────────────────────────────
+# DICTIONNAIRES DE SCORING — modifier ici pour recalibrer
+# ─────────────────────────────────────────────────────────────
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PROFIL BAPTISTE — à ajuster ici uniquement
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Stack technique — pondérée par maîtrise + valeur marché
-STACK_WEIGHTS = {
-    # IA / Agents (cœur de valeur, très demandé)
-    "intelligence artificielle": 10, "ia ": 10, " ia": 10, "agent ia": 10,
-    "agent ai": 10, "llm": 9, "claude": 9, "openai": 9, "gpt": 8,
-    "chatgpt": 8, "langchain": 8, "langgraph": 8, "rag": 8,
+# Mots-clés stack technique (contribution : 0–35 pts, cappés)
+STACK_WEIGHTS: dict[str, int] = {
+    # IA / Agents — cœur de valeur Baptiste
+    "intelligence artificielle": 10, "agent ia": 10, "agent ai": 10,
+    "llm": 9, "claude": 9, "openai": 9, "gpt": 8, "chatgpt": 8,
+    "langchain": 8, "langgraph": 8, "rag": 8,
     "automatisation ia": 9, "automation ai": 9, "ai automation": 9,
+    "generative ai": 9, "gen ai": 9, "prompt engineering": 8,
     "machine learning": 7, "deep learning": 7, "nlp": 7,
-    "computer vision": 6, "generative ai": 9, "gen ai": 9,
-    "prompt engineering": 8, "fine-tuning": 7, "embedding": 7,
-
+    "fine-tuning": 7, "embedding": 7, "computer vision": 6,
     # Web full-stack
     "react": 8, "next.js": 8, "nextjs": 8, "vue": 7, "nuxt": 7,
     "typescript": 7, "javascript": 6, "node.js": 7, "nodejs": 7,
     "python": 8, "fastapi": 8, "django": 7, "flask": 7,
-    "api rest": 7, "rest api": 7, "graphql": 7, "websocket": 6,
-
-    # E-commerce / Shopify (expertise LFDS)
-    "shopify": 9, "e-commerce": 7, "ecommerce": 7, "prestashop": 6,
-    "woocommerce": 6, "liquid": 7, "shopify plus": 9,
-
-    # DevOps / Cloud (compétences secondaires)
-    "supabase": 8, "postgresql": 7, "sql": 6, "nosql": 5,
+    "api rest": 7, "rest api": 7, "graphql": 7,
+    # Shopify / e-commerce
+    "shopify": 9, "shopify plus": 9, "e-commerce": 7, "ecommerce": 7,
+    "liquid": 7, "prestashop": 6, "woocommerce": 6,
+    # Data / BDD
+    "supabase": 8, "postgresql": 7, "sql": 6,
+    # DevOps / Cloud (secondaire)
     "docker": 6, "railway": 6, "netlify": 6, "vercel": 6,
-    "aws": 5, "gcp": 5, "azure": 5, "kubernetes": 4,
-
+    "aws": 5, "gcp": 5, "azure": 5,
     # No-code / Automatisation
     "n8n": 8, "make": 7, "zapier": 6, "airtable": 6,
-    "notion api": 7, "bubble": 5, "webflow": 7,
-
-    # Consulting / Stratégie (bonus fort)
+    "notion api": 7, "webflow": 7,
+    # Consulting
     "consultant": 5, "consulting": 5, "conseil": 5,
     "stratégie digitale": 6, "transformation digitale": 6,
     "audit": 5, "accompagnement": 4,
-    "product manager": 4, "product owner": 4, "chef de projet": 4,
-
-    # Design / UX (compétences légères)
-    "figma": 4, "ui/ux": 4, "ux design": 4, "design system": 5,
 }
 
-# Mots-clés mission idéale (type de mission)
-MISSION_TYPE_KEYWORDS = {
-    "consultant ia": 20, "consultant web": 18, "consultant freelance": 15,
-    "expert ia": 20, "expert agent": 20, "expert llm": 18,
+# Mots-clés type de mission (contribution : 0–20 pts, cappés)
+MISSION_TYPE_WEIGHTS: dict[str, int] = {
+    "consultant ia": 20, "consultant web": 18, "expert ia": 20,
+    "expert agent": 20, "expert llm": 18, "consultant freelance": 15,
     "développeur ia": 15, "développeur ai": 15, "ai developer": 15,
     "full stack": 12, "fullstack": 12, "full-stack": 12,
     "développeur web": 10, "web developer": 10,
-    "freelance": 8, "indépendant": 8,
-    "mission courte": 12,  # missions courtes = bon TJM
     "poc": 10, "prototype": 10, "mvp": 10,
-    "audit technique": 12, "audit ia": 15,
+    "mission courte": 12, "audit technique": 12, "audit ia": 15,
+    "freelance": 8, "indépendant": 8,
     "formation": 8, "coaching": 8,
 }
 
-# Mots-clés négatifs (pénalité)
-NEGATIVE_KEYWORDS = {
+# Pénalités (pas de cap — peut être très négatif)
+NEGATIVE_WEIGHTS: dict[str, int] = {
     # Hors compétences
-    "java": -8, "spring": -8, "kotlin": -8, "swift": -8,
-    "ios developer": -10, "android developer": -10, "mobile native": -8,
-    "unity": -10, "unreal": -10, "game": -5,
-    "c++": -8, "c#": -6, "rust": -5, "golang": -5, "go developer": -5,
-    "sap": -10, "salesforce": -5, "oracle": -8,
-    "devops only": -5, "sre": -5, "infrastructure only": -5,
-    "data scientist only": -3,
-    # Emploi CDI (pas freelance)
+    "java": -8, "spring boot": -8, "kotlin": -8, "swift": -8,
+    "unity": -10, "unreal": -10, "c++": -8, "c#": -6,
+    "sap": -10, "oracle": -8, "golang": -5,
+    "ios developer": -10, "android developer": -10,
+    # CDI / emploi salarié
     "cdi": -15, "cdd": -10, "temps plein": -10, "full time employee": -10,
     "poste de": -8, "nous recrutons": -8, "rejoignez notre équipe": -5,
-    # Budget trop bas
-    "stage": -20, "stagiaire": -20, "alternance": -20, "alternant": -20,
-    "bénévole": -20,
+    # Sans budget
+    "stage": -20, "stagiaire": -20, "alternance": -20, "bénévole": -20,
 }
 
-PROPOSAL_SCORE_THRESHOLD = 55  # Abaissé depuis 70
+# Types de mission pour classify_mission()
+MISSION_TYPES = {
+    "ia_consulting": ["consultant ia", "expert ia", "agent ia", "expert agent", "expert llm",
+                      "intelligence artificielle", "llm", "rag", "langchain", "automatisation ia"],
+    "web_dev": ["react", "next.js", "nextjs", "vue", "nuxt", "typescript", "javascript",
+                "développeur web", "web developer", "full stack", "fullstack"],
+    "shopify": ["shopify", "shopify plus", "liquid", "e-commerce", "ecommerce"],
+    "automation": ["n8n", "make", "zapier", "automatisation", "automation", "workflow", "airtable"],
+    "consulting": ["consultant", "consulting", "conseil", "stratégie", "audit", "accompagnement"],
+    "data": ["machine learning", "deep learning", "nlp", "sql", "postgresql", "supabase", "data"],
+}
 
 
-def _text(mission: Mission) -> str:
-    """Texte consolidé pour matching (lowercase)."""
+# ─────────────────────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────────────────────
+
+def _lower_text(raw) -> str:
+    """Texte consolidé lowercase pour matching."""
     parts = [
-        mission.title or "",
-        mission.description or "",
-        " ".join(mission.tags or []),
-        mission.location or "",
+        raw.title or "",
+        raw.description or "",
+        " ".join(raw.tags or []),
     ]
     return " ".join(parts).lower()
 
 
-def _score_stack(text: str) -> tuple[int, list]:
-    """Stack match — max 35 pts."""
-    total = 0
-    matched = []
-    for kw, pts in STACK_WEIGHTS.items():
-        if kw in text:
-            total += pts
-            matched.append((kw, pts))
-    # Cap à 35
-    total = min(total, 35)
-    return total, matched
+def _score_stack(text: str) -> int:
+    total = sum(pts for kw, pts in STACK_WEIGHTS.items() if kw in text)
+    return min(total, 35)
 
 
-def _score_mission_type(text: str) -> tuple[int, list]:
-    """Type de mission — max 20 pts."""
-    total = 0
-    matched = []
-    for kw, pts in MISSION_TYPE_KEYWORDS.items():
-        if kw in text:
-            total += pts
-            matched.append((kw, pts))
-    return min(total, 20), matched
+def _score_mission_type(text: str) -> int:
+    total = sum(pts for kw, pts in MISSION_TYPE_WEIGHTS.items() if kw in text)
+    return min(total, 20)
 
 
-def _score_budget(mission: Mission) -> tuple[int, str]:
-    """Budget vs TJM 450€/j — max 25 pts.
-    
-    Logique :
-    - Si budget journalier ≥ 450€ → 25 pts
-    - Si budget total ≥ 5 000€ → 20 pts (mission ≥ ~11j)
-    - Si budget 1 000-5 000€ → 12 pts
-    - Si budget < 500€ → 3 pts
-    - Si budget inconnu → 10 pts (neutre, pas pénalisé)
-    """
-    bmin = mission.budget_min
-    bmax = mission.budget_max
-    budget = bmax or bmin
-
+def _score_budget(raw) -> int:
+    """Budget vs TJM 450€/j — max 25 pts."""
+    budget = raw.budget_max or raw.budget_min
     if budget is None:
-        # Budget non renseigné → neutre
-        return 10, "inconnu (neutre)"
-
+        return 10  # neutre si inconnu
     if budget >= 10000:
-        return 25, f"{budget:.0f}€ (excellent)"
+        return 25
     if budget >= 5000:
-        return 20, f"{budget:.0f}€ (bon)"
+        return 20
     if budget >= 1000:
-        return 12, f"{budget:.0f}€ (acceptable)"
+        return 12
     if budget >= 500:
-        return 6, f"{budget:.0f}€ (faible)"
-    return 2, f"{budget:.0f}€ (trop bas)"
+        return 6
+    return 2
 
 
-def _score_remote(mission: Mission) -> tuple[int, str]:
+def _score_remote(raw) -> int:
     """Remote / localité — max 10 pts."""
-    text = _text(mission)
-
-    # Remote explicite
-    if mission.is_remote or "remote" in text or "télétravail" in text or "à distance" in text:
-        return 10, "remote confirmé"
-
-    # Toulouse ou Occitanie
-    if "toulouse" in text or "occitanie" in text or "31" in (mission.location or ""):
-        return 8, "Toulouse/local"
-
-    # Autre ville France
-    if any(v in text for v in ["paris", "lyon", "bordeaux", "nantes", "marseille", "france"]):
-        return 4, "France (déplacement possible)"
-
-    # International en présentiel
-    return 2, "présentiel étranger (pénalité)"
+    if getattr(raw, "remote", True):
+        return 10
+    text = _lower_text(raw)
+    if "remote" in text or "télétravail" in text or "à distance" in text:
+        return 10
+    if "toulouse" in text or "occitanie" in text:
+        return 8
+    if any(v in text for v in ["paris", "lyon", "bordeaux", "france"]):
+        return 4
+    return 2
 
 
-def _score_freshness(mission: Mission) -> tuple[int, str]:
+def _score_freshness(raw) -> int:
     """Fraîcheur — max 10 pts."""
-    if not mission.posted_at:
-        return 5, "date inconnue (neutre)"
-
+    posted_at = getattr(raw, "posted_at", None)
+    if not posted_at:
+        return 5  # neutre
     now = datetime.now(timezone.utc)
-    if mission.posted_at.tzinfo is None:
-        mission.posted_at = mission.posted_at.replace(tzinfo=timezone.utc)
-
-    age_hours = (now - mission.posted_at).total_seconds() / 3600
-
+    if posted_at.tzinfo is None:
+        posted_at = posted_at.replace(tzinfo=timezone.utc)
+    age_hours = (now - posted_at).total_seconds() / 3600
     if age_hours <= 24:
-        return 10, "< 24h (très fraîche)"
+        return 10
     if age_hours <= 72:
-        return 8, "< 3j"
+        return 8
     if age_hours <= 168:
-        return 5, "< 7j"
+        return 5
     if age_hours <= 336:
-        return 2, "< 14j"
-    return 0, "> 14j (ancienne)"
+        return 2
+    return 0
 
 
-def _score_negatives(text: str) -> tuple[int, list]:
-    """Pénalités — pas de cap (peut devenir très négatif)."""
-    total = 0
-    matched = []
-    for kw, pts in NEGATIVE_KEYWORDS.items():
-        if kw in text:
-            total += pts
-            matched.append((kw, pts))
-    return total, matched
+def _score_negatives(text: str) -> int:
+    return sum(pts for kw, pts in NEGATIVE_WEIGHTS.items() if kw in text)
 
 
-def score_mission(mission: Mission) -> dict:
+# ─────────────────────────────────────────────────────────────
+# API PUBLIQUE — signatures compatibles avec main.py
+# ─────────────────────────────────────────────────────────────
+
+def score_mission(raw, profile: dict | None = None) -> int:
     """
-    Calcule le score d'une mission.
-    
+    Calcule le score d'une RawMission (0–100).
+
+    Args:
+        raw     : RawMission instance
+        profile : dict profil S&B (optionnel — réservé usage futur)
+
     Returns:
-        dict avec 'score' (0-100), 'breakdown' (détail), 'generate_proposal' (bool)
+        int score entre 0 et 100
     """
-    text = _text(mission)
+    text = _lower_text(raw)
 
-    stack_pts, stack_matches = _score_stack(text)
-    type_pts, type_matches = _score_mission_type(text)
-    budget_pts, budget_detail = _score_budget(mission)
-    remote_pts, remote_detail = _score_remote(mission)
-    fresh_pts, fresh_detail = _score_freshness(mission)
-    neg_pts, neg_matches = _score_negatives(text)
+    pts = (
+        _score_stack(text)
+        + _score_mission_type(text)
+        + _score_budget(raw)
+        + _score_remote(raw)
+        + _score_freshness(raw)
+        + _score_negatives(text)
+    )
 
-    raw = stack_pts + type_pts + budget_pts + remote_pts + fresh_pts + neg_pts
-    final = max(0, min(100, raw))
-
-    breakdown = {
-        "stack": {"pts": stack_pts, "max": 35, "matches": stack_matches[:5]},
-        "type": {"pts": type_pts, "max": 20, "matches": type_matches[:3]},
-        "budget": {"pts": budget_pts, "max": 25, "detail": budget_detail},
-        "remote": {"pts": remote_pts, "max": 10, "detail": remote_detail},
-        "freshness": {"pts": fresh_pts, "max": 10, "detail": fresh_detail},
-        "negatives": {"pts": neg_pts, "matches": neg_matches},
-    }
-
-    return {
-        "score": final,
-        "breakdown": breakdown,
-        "generate_proposal": final >= PROPOSAL_SCORE_THRESHOLD,
-    }
+    score = max(0, min(100, pts))
+    logger.debug(f"score_mission [{raw.source}] '{raw.title[:50]}' → {score}")
+    return score
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TEST RAPIDE
-# ─────────────────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    from datetime import timedelta
+def classify_mission(raw) -> str:
+    """
+    Classifie une RawMission dans une catégorie métier.
 
-    missions_test = [
-        Mission(
-            title="Recherche consultant IA - expert agent",
-            description="Mission de conseil en intelligence artificielle pour déployer des agents LLM. Budget 3000-8000€. Télétravail possible.",
-            source="codeur",
-            url="https://codeur.com/test1",
-            budget_min=3000,
-            budget_max=8000,
-            is_remote=True,
-            posted_at=datetime.now(timezone.utc) - timedelta(hours=12),
-        ),
-        Mission(
-            title="Développeur React / Next.js - Startup IA",
-            description="Rejoignez notre équipe full-time pour développer une plateforme React + FastAPI + LLM. CDI Paris.",
-            source="linkedin",
-            url="https://linkedin.com/test2",
-            budget_min=None,
-            budget_max=None,
-            is_remote=False,
-            location="Paris",
-        ),
-        Mission(
-            title="Audit et déploiement agent IA pour PME",
-            description="Consultant freelance pour audit IA, prototype n8n + Claude API. Mission courte 5-10 jours. Remote. Budget 5000€.",
-            source="codeur",
-            url="https://codeur.com/test3",
-            budget_min=5000,
-            budget_max=5000,
-            is_remote=True,
-            posted_at=datetime.now(timezone.utc) - timedelta(hours=2),
-        ),
-        Mission(
-            title="Java Spring Boot Developer",
-            description="Développeur Java senior pour migration microservices. CDI. SAP expérience souhaitée.",
-            source="weworkremotely",
-            url="https://weworkremotely.com/test4",
-        ),
-        Mission(
-            title="Développement Shopify store + IA personnalisation",
-            description="Mission e-commerce Shopify avec personnalisation produit par IA. Toulouse ou remote. Budget 2000-4000€.",
-            source="codeur",
-            url="https://codeur.com/test5",
-            budget_min=2000,
-            budget_max=4000,
-            is_remote=True,
-            location="Toulouse",
-        ),
-    ]
+    Returns:
+        str parmi : 'ia_consulting', 'web_dev', 'shopify', 'automation',
+                    'consulting', 'data', 'other'
+    """
+    text = _lower_text(raw)
 
-    print("=" * 60)
-    print("SNB SCORER v2 — TEST DE CALIBRATION")
-    print(f"Seuil génération proposition : {PROPOSAL_SCORE_THRESHOLD}")
-    print("=" * 60)
+    # Ordre de priorité : catégories les plus spécifiques en premier
+    for mission_type, keywords in MISSION_TYPES.items():
+        if any(kw in text for kw in keywords):
+            return mission_type
 
-    for m in missions_test:
-        result = score_mission(m)
-        s = result["score"]
-        gen = "✅ PROPOSAL" if result["generate_proposal"] else "❌ skip"
-        b = result["breakdown"]
-        print(f"\n[{s:3d}/100] {gen}")
-        print(f"  📋 {m.title[:60]}")
-        print(f"  Stack: {b['stack']['pts']}/35 | Type: {b['type']['pts']}/20 | Budget: {b['budget']['pts']}/25 | Remote: {b['remote']['pts']}/10 | Fresh: {b['freshness']['pts']}/10 | Neg: {b['negatives']['pts']}")
-        if b["negatives"]["matches"]:
-            print(f"  ⚠️  Pénalités: {[m[0] for m in b['negatives']['matches']]}")
+    return "other"
