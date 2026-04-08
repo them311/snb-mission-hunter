@@ -1,6 +1,6 @@
 """
-SNB Mission Hunter — FastAPI endpoints.
-Health lit directement depuis Supabase (partagé entre processus).
+SNB Mission Hunter â FastAPI endpoints.
+Health lit directement depuis Supabase (partagÃ© entre processus).
 """
 
 import time
@@ -23,10 +23,15 @@ app.add_middleware(
 _started_at = time.time()
 _db = None
 _proposer_active = False
+_score_threshold = None
 
 def set_proposer_active(active: bool):
     global _proposer_active
     _proposer_active = active
+
+def set_score_threshold(threshold: int):
+    global _score_threshold
+    _score_threshold = threshold
 
 def set_db(db):
     global _db
@@ -42,7 +47,7 @@ async def startup():
             from db import Database
             config = Config.from_env()
             _db = Database(config.supabase_url, config.supabase_service_key)
-            logger.info("✅ API DB initialized")
+            logger.info("â API DB initialized")
         except Exception as e:
             logger.warning(f"API DB init failed: {e}")
 
@@ -71,7 +76,7 @@ async def health():
         "missions_today": 0,
         "proposals_today": 0,
         "proposer_active": _proposer_active,
-        "score_threshold": None,
+        "score_threshold": _score_threshold,
         "sources": {},
     }
 
@@ -145,7 +150,7 @@ async def get_missions(limit: int = 50):
 
 @app.get("/devis/{mission_id}")
 async def generate_devis(mission_id: str):
-    """Génère un devis HTML téléchargeable pour une mission."""
+    """GÃ©nÃ¨re un devis HTML tÃ©lÃ©chargeable pour une mission."""
     if not _db:
         return {"error": "DB not init"}
     try:
@@ -167,29 +172,29 @@ table{{width:100%;border-collapse:collapse;margin:10px 0}}td,th{{padding:8px 10p
 .total{{font-size:18px;font-weight:bold;text-align:right;margin:16px 0}}.footer{{margin-top:40px;font-size:11px;color:#888;text-align:center}}
 @media print{{body{{padding:20px}}}}</style></head><body>
 <div style="display:flex;justify-content:space-between;border-bottom:3px solid #111;padding-bottom:14px;margin-bottom:20px">
-<div><h1>Baptiste Thevenot</h1><p style="color:#555;font-size:13px">Consultant Web & IA · Freelance</p>
-<p style="font-size:12px;color:#888;margin-top:6px">10 chemin de Catala, 31100 Toulouse<br>bp.thevenot@gmail.com · 06 86 50 43 79<br>SIRET : 849 022 058</p></div>
+<div><h1>Baptiste Thevenot</h1><p style="color:#555;font-size:13px">Consultant Web & IA Â· Freelance</p>
+<p style="font-size:12px;color:#888;margin-top:6px">10 chemin de Catala, 31100 Toulouse<br>bp.thevenot@gmail.com Â· 06 86 50 43 79<br>SIRET : 849 022 058</p></div>
 <div style="text-align:right"><p style="font-size:18px;font-weight:bold">DEVIS</p><p style="font-size:12px;color:#888">{today}<br>Valable 30 jours</p></div></div>
 
 <div style="background:#f5f7fa;border-radius:8px;padding:14px;margin-bottom:20px">
 <p style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;font-weight:bold">Mission Freelance</p>
 <p style="font-size:17px;font-weight:bold;margin-top:4px">{title}</p>
-<p style="font-size:13px;color:#555">{company} · Remote · {budget}</p></div>
+<p style="font-size:13px;color:#555">{company} Â· Remote Â· {budget}</p></div>
 
 <h2>Tarification</h2>
-<table><tr style="background:#f9f9f9"><td style="font-weight:bold">Taux horaire</td><td style="text-align:center;font-weight:bold;font-size:15px">60 € HT/h</td></tr>
-<tr><td style="font-weight:bold">Taux journalier (TJM)</td><td style="text-align:center;font-weight:bold;font-size:15px">450 € HT/jour</td></tr>
-<tr style="background:#f0fff4"><td style="font-weight:bold">Forfait mensuel</td><td style="text-align:center;font-weight:bold;font-size:17px">9 000 € HT/mois</td></tr></table>
+<table><tr style="background:#f9f9f9"><td style="font-weight:bold">Taux horaire</td><td style="text-align:center;font-weight:bold;font-size:15px">60 â¬ HT/h</td></tr>
+<tr><td style="font-weight:bold">Taux journalier (TJM)</td><td style="text-align:center;font-weight:bold;font-size:15px">450 â¬ HT/jour</td></tr>
+<tr style="background:#f0fff4"><td style="font-weight:bold">Forfait mensuel</td><td style="text-align:center;font-weight:bold;font-size:17px">9 000 â¬ HT/mois</td></tr></table>
 
 <h2>Conditions</h2>
-<p><strong>Disponibilité :</strong> Immédiate<br><strong>Mode :</strong> 100% télétravail<br><strong>Paiement :</strong> 30% commande · 70% livraison<br>
-<strong>Compétences :</strong> React.js, Node.js, Shopify, Claude API, Python, Figma<br><strong>TVA :</strong> Non applicable — art. 293B du CGI</p>
+<p><strong>DisponibilitÃ© :</strong> ImmÃ©diate<br><strong>Mode :</strong> 100% tÃ©lÃ©travail<br><strong>Paiement :</strong> 30% commande Â· 70% livraison<br>
+<strong>CompÃ©tences :</strong> React.js, Node.js, Shopify, Claude API, Python, Figma<br><strong>TVA :</strong> Non applicable â art. 293B du CGI</p>
 
 <div style="margin-top:30px;border-top:1px solid #ddd;padding-top:14px;display:flex;justify-content:space-between">
 <div><p style="font-size:12px;color:#888">Bon pour accord</p><div style="margin-top:20px;border-bottom:1px solid #ccc;width:160px"></div></div>
 <div style="text-align:right;font-size:12px;color:#888">Baptiste Thevenot<br>Consultant Web & IA</div></div>
 
-<p class="footer">Baptiste Thevenot · SIRET 849 022 058 · TVA non applicable art. 293B du CGI</p>
+<p class="footer">Baptiste Thevenot Â· SIRET 849 022 058 Â· TVA non applicable art. 293B du CGI</p>
 <script>window.print&&setTimeout(()=>{{/*window.print()*/}},500)</script>
 </body></html>"""
         return HTMLResponse(content=html)
