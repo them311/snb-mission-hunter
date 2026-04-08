@@ -32,7 +32,7 @@ class Config:
     email_to: str = ""
 
     # --- Agent ---
-    score_threshold: int = 70
+    score_threshold: int = 55
     scan_interval_fast: int = 300  # 5 min — Tier 1
     scan_interval_slow: int = 1800  # 30 min — Tier 2
     log_level: str = "INFO"
@@ -53,7 +53,7 @@ class Config:
             smtp_user=os.getenv("SMTP_USER", ""),
             smtp_password=os.getenv("SMTP_PASSWORD", ""),
             email_to=os.getenv("EMAIL_TO", ""),
-            score_threshold=int(os.getenv("SCORE_THRESHOLD", "70")),
+            score_threshold=int(os.getenv("SCORE_THRESHOLD", "55")),
             scan_interval_fast=int(os.getenv("SCAN_INTERVAL_FAST", "300")),
             scan_interval_slow=int(os.getenv("SCAN_INTERVAL_SLOW", "1800")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
