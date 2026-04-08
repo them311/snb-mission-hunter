@@ -3,6 +3,7 @@ SNB Mission Hunter â FastAPI endpoints.
 Health lit directement depuis Supabase (partagÃ© entre processus).
 """
 
+import os
 import time
 import logging
 from datetime import datetime, timezone, timedelta
@@ -75,8 +76,8 @@ async def health():
         "scans_total": 0,
         "missions_today": 0,
         "proposals_today": 0,
-        "proposer_active": _proposer_active,
-        "score_threshold": _score_threshold,
+        "proposer_active": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "score_threshold": int(os.environ.get("SCORE_THRESHOLD", 55)),
         "sources": {},
     }
 
