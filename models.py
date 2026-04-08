@@ -26,7 +26,11 @@ class RawMission:
 
     @property
     def dedup_key(self) -> str:
-        raw = f"{self.source}:{self.title}:{self.company}".lower().strip()
+        # Prefer source_url for dedup — it's stable across scrapes
+        if self.source_url:
+            raw = f"{self.source}:{self.source_url}".lower().strip()
+        else:
+            raw = f"{self.source}:{self.title}:{self.company}".lower().strip()
         return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
     def to_db_dict(self, score: int = 0, mission_type: str = "other") -> dict:
